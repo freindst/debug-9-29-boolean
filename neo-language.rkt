@@ -1,6 +1,3 @@
-;; The first three lines of this file were inserted by DrRacket. They record metadata
-;; about the language level of this file in a form that our tools can easily process.
-#reader(lib "htdp-advanced-reader.ss" "lang")((modname neo-language) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #t #t none #f () #f)))
 ;variable scope/environment
 ;() | ((varname var_value)....)
 (define env '((a 1) (b 2) (c 5)))
@@ -26,7 +23,7 @@
       ;(bool op num1 num2) > (bool-exp op (neo-exp) (neo-exp))
        ((equal? (car neo-code) 'bool)
         (if (equal? (length neo-code) 3)
-            (list 'bool-exp (cadr neo-code) (neo-parser (caddr neo-code)) '())
+            (list 'bool-exp (elementAt neo-code 1) (neo-parser (caddr neo-code)) '())
         (cons 'bool-exp (cons (cadr neo-code) (map neo-parser (cddr neo-code))))))
       ;(math op num1 num2) > (math-exp op (neo-exp) (neo-exp))
       ((equal? (car neo-code) 'math)
@@ -35,7 +32,7 @@
              (neo-parser (cadddr neo-code))))
       ;(ask (bool op num1 num2) (neo-exp1) (neo-exp2)) > (ask-exp (bool-exp ...) (parsed-neo-exp1) (parsed-neo-exp2))
       ((equal? (car neo-code) 'ask)
-       (list 'ask-exp
+       (cons 'ask-exp
              (map neo-parser (cdr neo-code))))
       ;(function (x y z,...) x)
       ((equal? (car neo-code) 'function)
@@ -113,6 +110,7 @@
       ((equal? op '>=) (>= num1 num2))
       ((equal? op '<=) (<= num1 num2))
       ((equal? op '==) (= num1 num2))
+      ((equal? op '!=) (not (= num1 num2)))
       ((equal? op '&&) (and num1 num2))
       ((equal? op '||) (or num1 num2))
       (else (not num1))
@@ -135,9 +133,28 @@
     )
   )
 
+;what does cadr means? second element of the list
+;what does caddr means? third element
+;how about cadddr? forth element
+;do we have caddddr?
+;function that behave like charAt() <-> indexOf()
+;called it elementAt(list, index) //index is zero base
+;lst = (1 2 3) index= 4
+;(elementAt (2 3) i = 0)
+(define elementAt
+  (lambda(lst index)
+    (cond
+      ((not (list? lst)) "this is not a list")
+      ((null? lst) "this is an empty list or index out of bound.")
+      ((equal? index 0) (car lst))
+      (else (elementAt (cdr lst) (- index 1)))
+      )
+    )
+  )
+
 ;(define env '((a 1) (b 2) (c 5)))
 ;(app-exp (func-exp (params (identifier1, identifier2, identifer3 ...)) (body-exp)) ((neo-exp1 neo-exp2 neo-exp3 ...))
-(define sample-code '(call (function () (ask (bool > a b) (math - a b) (math + a b))) (a)))
+(define sample-code '(call (function () (ask (bool != a b) (math - a b) (math + a b))) (a)))
 (display (neo-parser sample-code))
 (define parsed-neo-code (neo-parser sample-code))
 (run-neo-parsed-code parsed-neo-code env)
