@@ -1,6 +1,5 @@
 #lang racket
 (require "utility.rkt")
-
 ;resolve a value from variable environment
 (define resolve
   (lambda (environment varname)
@@ -34,10 +33,7 @@
       ((equal? (car parsed-code) 'var-exp)
        (resolve env (cadr parsed-code)))
       ;(bool-exp op (neo-exp) (neo-exp))
-      ((equal? (car parsed-code) 'bool-exp)
-       (run-bool-exp (cadr parsed-code)
-                     (run-neo-parsed-code (caddr parsed-code) env)
-                     (run-neo-parsed-code (cadddr parsed-code) env)))
+      ((equal? (car parsed-code) 'bool-exp) (run-bool-parsed-code (cdr parsed-code) env))
       ;(math-exp op (neo-exp) (neo-exp))
       ((equal? (car parsed-code) 'math-exp)
        (run-math-exp (cadr parsed-code)
@@ -59,6 +55,42 @@
             )
       )
     ) 
+  )
+
+
+;run bool parsed code
+(define run-bool-parsed-code
+  (lambda(parsed-code env)
+    (let ((op (elementAt parsed-code 0))
+           (num1 (run-neo-parsed-code (elementAt parsed-code 1) env))
+           (num2 (run-neo-parsed-code (elementAt parsed-code 2) env)))
+           (cond
+             ((equal? op '>) (> num1 num2))
+             ((equal? op '<) (< num1 num2))
+             ((equal? op '>=) (>= num1 num2))
+             ((equal? op '<=) (<= num1 num2))
+             ((equal? op '==) (= num1 num2))
+             ((equal? op '!=) (not (= num1 num2)))
+             ((equal? op '&&) (and num1 num2))
+             ((equal? op '||) (or num1 num2))
+             (else (not num1))
+        )
+      )
+    )
+  )
+
+(define run-math-exp
+  (lambda (op num1 num2)
+    (cond
+      ((equal? op '+) (+ num1 num2)) ;+ 1 1)
+      ((equal? op '-) (- num1 num2))  ;- 1 1
+      ((equal? op '*) (* num1 num2)) ;* 1 1
+      ((equal? op '/) (/ num1 num2))  ;/ 1 1 float division
+      ((equal? op '//) (quotient num1 num2))  ;// 1 1 interger division
+      ((equal? op '%) (modulo num1 num2))  ;% 1 1 modulo
+      (else #false)
+      )
+    )
   )
 
 (provide (all-defined-out))
