@@ -1,28 +1,58 @@
 #lang racket
 (require "utility.rkt")
 ;resolve a value from variable environment
-(define resolve
-  (lambda (environment varname)
+(define resolve_scope;((a 1) (b 2) (c 5)), it gives two kinds of result. found return a value
+  ; not found return #false
+  (lambda (scope varname)
     (cond
-      ((null? environment) #false)
-      ((equal? (caar environment) varname) (cadar environment))
-      (else (resolve (cdr environment) varname))
+      ((null? scope) #false)
+      ((equal? (caar scope) varname) (cadar scope))
+      (else (resolve_scope (cdr scope) varname))
       )
     )
   )
 
-(define extend-env
-  (lambda (list-of-varname list-of-value env) ;((x y z) (1 2 3) env)
+;environment is a list of scopes
+;global variable scope (global (a 1) (b 2) (c 5))
+;local variable scope has no keywords as the first element
+(define resolve_env
+  (lambda (environment varname)
     (cond
-      ((null? list-of-varname) env)
-      ((null? list-of-value) env)
-      (else (extend-env (cdr list-of-varname) (cdr list-of-value)
-       (cons (list (car list-of-varname)
-                   (car list-of-value))
-             env)))
+      ((null? environment) #false)
+      ((null? (car environment)) (resolve_env (cdr environment) varname))
+      ((equal? 'global (car (car environment))) (resolve_scope (cdr (car environment)) varname))
+      (else (let ((resolved_result (resolve_scope (car environment))))
+              (if (equal? resolved_result #false)
+                  (resolve_env (cdr environment) varname)
+                  resolved_result
+                  )
+              )
+       );if we resolve_scope returns a value that is what we are looking for
+      ;otherwise, if resolve_scope returns #false, we should look up global variable scope
       )
     )
   )
+                                 
+;it will be only called in let-exp
+(define extend-scope
+  (lambda (list-of-varname list-of-value scope) ;((x y z) (1 2 3) env)
+    (cond
+      ((null? list-of-varname) scope)
+      ((null? list-of-value) scope)
+      (else (extend-scope (cdr list-of-varname) (cdr list-of-value)
+       (cons (list (car list-of-varname)
+                   (car list-of-value))
+             scope)))
+      )
+    )
+  )
+
+(define add_scope_to_env
+  (lambda (list-of-varname list-of-value env)
+    (1)
+    )
+  )
+
 
 (define run-neo-parsed-code
   (lambda (parsed-code env)
@@ -31,7 +61,7 @@
       ((equal? (car parsed-code) 'num-exp)
        (cadr parsed-code));(num-exp 22)
       ((equal? (car parsed-code) 'var-exp)
-       (resolve env (cadr parsed-code)))
+       (resolve_env env (cadr parsed-code)))
       ;(bool-exp op (neo-exp) (neo-exp))
       ((equal? (car parsed-code) 'bool-exp) (run-bool-parsed-code (cdr parsed-code) env))
       ;(math-exp op (neo-exp) (neo-exp))
@@ -45,9 +75,12 @@
            (run-neo-parsed-code (cadddr parsed-code) env)))
       ((equal? (car parsed-code) 'func-exp)
        (run-neo-parsed-code (cadr (caddr parsed-code)) env))
+      ;(app-exp (func-exp (params (x)) (body-exp (let-exp ((a 1) (b 2) (c 3)) (math-exp + (var-exp a) (var-exp b))))) ((num-exp 5)))
+      ((equal? (car parsed-code) 'let-exp)
+       (run-let-exp parsed-code env))
       (else (run-neo-parsed-code
              (cadr parsed-code) ;function expression
-             (extend-env
+             (extend-scope
               (cadr (cadr (cadr parsed-code)))
               (map (lambda (exp) (run-neo-parsed-code exp env)) (caddr parsed-code));list of values ((num-exp 1) (var-exp a) (math-exp + (num-exp 2) (num-exp 3)))
               env);environment scope update
@@ -91,6 +124,17 @@
       (else #false)
       )
     )
+  )
+
+(define run-let-exp
+  (lambda (parsed-code env)
+    (let* ((list-of-names (getVarnames (elementAt parsed-code 1)))
+          (list-of-values (getValues (elementAt parsed-code 1)))
+          (new_env (extend-scope list-of-names list-of-values env))
+          (body (elementAt parsed-code 2)))
+    (run-neo-parsed-code body new_env)
+    )
+  )
   )
 
 (provide (all-defined-out))
