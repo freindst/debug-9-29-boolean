@@ -47,12 +47,42 @@
     )
   )
 
-(define add_scope_to_env
+(define push_scope_to_env
   (lambda (list-of-varname list-of-value env)
-    (1)
+    ;construct a new scope based on list of varnames and list of values
+    (let ((new_scope (extend-scope list-of-varname list-of-value '()))
+          (pop_off_env (pop_env_to_global_scope env))) ;pop off scopes on top of global scope in environment
+      (cons new_scope pop_off_env) ;concate the new scope to the global scope environment
+      )
     )
   )
 
+;remove all scopes on top of global scope
+(define pop_env_to_global_scope
+  (lambda (env)
+    (cond
+      ((null? env) #false)
+      ((equal? (length env) 1)
+       (if (equal? (car (car env)) 'global) env
+           #false))
+      (else (pop_env_to_global_scope (cdr env)))
+      )
+    )
+  )
+
+;add name value pairs to the local scope
+(define extend_local_scope
+  (lambda (list-of-varname list-of-value env)
+    (cond
+      ((null? env) #false)
+      ;check the first scope is local scope or not
+      ((equal? (caar env) 'global) (push_scope_to_env list-of-varname list-of-value env))
+      ;use extend_scope function to add new variables into the local scope
+      (else (cons (extend-scope list-of-varname list-of-value (car env))
+                  (pop_env_to_global_scope env)))
+     )
+    )
+  )
 
 (define run-neo-parsed-code
   (lambda (parsed-code env)
@@ -80,12 +110,12 @@
        (run-let-exp parsed-code env))
       (else (run-neo-parsed-code
              (cadr parsed-code) ;function expression
-             (extend-scope
-              (cadr (cadr (cadr parsed-code)))
-              (map (lambda (exp) (run-neo-parsed-code exp env)) (caddr parsed-code));list of values ((num-exp 1) (var-exp a) (math-exp + (num-exp 2) (num-exp 3)))
-              env);environment scope update
-             )
-            )
+             (push_scope_to_env (cadr (cadr (cadr parsed-code)))
+                                (map (lambda (exp) (run-neo-parsed-code exp env)) (caddr parsed-code))
+                                env
+                                )
+             );environment scope update
+         )            
       )
     ) 
   )
@@ -126,15 +156,18 @@
     )
   )
 
+    
+
 (define run-let-exp
   (lambda (parsed-code env)
     (let* ((list-of-names (getVarnames (elementAt parsed-code 1)))
           (list-of-values (getValues (elementAt parsed-code 1)))
-          (new_env (extend-scope list-of-names list-of-values env))
+          (new_env (extend_local_scope list-of-names list-of-values env))
+          ;new variables will be added to the local scope
           (body (elementAt parsed-code 2)))
     (run-neo-parsed-code body new_env)
     )
   )
-  )
+)
 
 (provide (all-defined-out))
